@@ -5,6 +5,7 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const port = 3000;
 const fs = require('fs');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 app.use(bodyParser.json());
@@ -13,15 +14,26 @@ app.use(bodyParser.urlencoded({ extended: true }));
 const SESSION_KEY = 'Authorization';
 const clientId = 'JIvCO5c2IBHlAe2patn6l6q5H35qxti0';
 const clientSecret = 'ZRF8Op0tWM36p1_hxXTU-B0K_Gq_-eAVtlrQpY24CasYiDmcXBhNS6IJMNcz1EgB';
+const domain = 'https://kpi.eu.auth0.com';
 const audience = 'https://kpi.eu.auth0.com/api/v2/';
 
 app.use(async (req, res, next) => {
     let token = req.get(SESSION_KEY);
 
+    if (token) {
+        const [, access_token] = token.split(' ');
+        const pemRes = await fetch(`${domain}/pem`);
+        const pem = await pemRes.text();
+        try {
+            jwt.verify(access_token, pem);
+        } catch {
+            return res.status(403).end();
+        }
+    }
+
     let userRes;
-    
     try {
-        userRes = await fetch('https://kpi.eu.auth0.com/userinfo', {
+        userRes = await fetch(`${domain}/userinfo`, {
             headers: {
                 'Authorization': token
             }
