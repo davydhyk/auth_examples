@@ -11,122 +11,65 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 const SESSION_KEY = 'Authorization';
+const clientId = 'JIvCO5c2IBHlAe2patn6l6q5H35qxti0';
+const clientSecret = 'ZRF8Op0tWM36p1_hxXTU-B0K_Gq_-eAVtlrQpY24CasYiDmcXBhNS6IJMNcz1EgB';
+const audience = 'https://kpi.eu.auth0.com/api/v2/';
 
-class Session {
-    #sessions = {}
+app.use(async (req, res, next) => {
+    let token = req.get(SESSION_KEY);
 
-    constructor() {
-        try {
-            this.#sessions = fs.readFileSync('./sessions.json', 'utf8');
-            this.#sessions = JSON.parse(this.#sessions.trim());
+    let userRes;
+    
+    try {
+        userRes = await fetch('https://kpi.eu.auth0.com/userinfo', {
+            headers: {
+                'Authorization': token
+            }
+        });
+    } catch {
 
-            console.log(this.#sessions);
-        } catch(e) {
-            this.#sessions = {};
-        }
     }
-
-    #storeSessions() {
-        fs.writeFileSync('./sessions.json', JSON.stringify(this.#sessions), 'utf-8');
+    
+    if (userRes.ok) {
+        const user = await userRes.json();
+        req.user = user;
     }
-
-    set(key, value) {
-        if (!value) {
-            value = {};
-        }
-        this.#sessions[key] = value;
-        this.#storeSessions();
-    }
-
-    get(key) {
-        return this.#sessions[key];
-    }
-
-    init(res) {
-        const sessionId = uuid.v4();
-        this.set(sessionId);
-
-        return sessionId;
-    }
-
-    destroy(req, res) {
-        const sessionId = req.sessionId;
-        delete this.#sessions[sessionId];
-        this.#storeSessions();
-    }
-}
-
-const sessions = new Session();
-
-app.use((req, res, next) => {
-    let currentSession = {};
-    let sessionId = req.get(SESSION_KEY);
-
-    if (sessionId) {
-        currentSession = sessions.get(sessionId);
-        if (!currentSession) {
-            currentSession = {};
-            sessionId = sessions.init(res);
-        }
-    } else {
-        sessionId = sessions.init(res);
-    }
-
-    req.session = currentSession;
-    req.sessionId = sessionId;
-
-    onFinished(req, () => {
-        const currentSession = req.session;
-        const sessionId = req.sessionId;
-        sessions.set(sessionId, currentSession);
-    });
 
     next();
 });
 
 app.get('/', (req, res) => {
-    if (req.session.username) {
-        return res.json({
-            username: req.session.username,
-            logout: 'http://localhost:3000/logout'
-        })
+    if (req.user) {
+        return res.json(req.user)
     }
     res.sendFile(path.join(__dirname+'/index.html'));
 })
 
 app.get('/logout', (req, res) => {
-    sessions.destroy(req, res);
     res.redirect('/');
 });
 
-const users = [
-    {
-        login: 'Login',
-        password: 'Password',
-        username: 'Username',
-    },
-    {
-        login: 'Login1',
-        password: 'Password1',
-        username: 'Username1',
-    }
-]
-
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
     const { login, password } = req.body;
 
-    const user = users.find((user) => {
-        if (user.login == login && user.password == password) {
-            return true;
-        }
-        return false
+    const authRes = await fetch('https://kpi.eu.auth0.com/oauth/token', {
+        method: 'POST',
+        body: new URLSearchParams({
+            username: login,
+            password,
+            audience: audience,
+            grant_type: 'http://auth0.com/oauth/grant-type/password-realm',
+            client_id: clientId,
+            client_secret: clientSecret,
+            realm: 'Username-Password-Authentication',
+            scope: 'openid'
+        })
     });
 
-    if (user) {
-        req.session.username = user.username;
-        req.session.login = user.login;
+    const auth = await authRes.json();
 
-        res.json({ token: req.sessionId });
+    if (auth.access_token) {
+        res.json(auth);
     }
 
     res.status(401).send();

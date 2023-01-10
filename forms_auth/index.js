@@ -113,9 +113,9 @@ const users = [
         username: 'Username',
     },
     {
-        login: 'Login1',
-        password: 'Password1',
-        username: 'Username1',
+        login: 'davydhyk',
+        password: 'pass',
+        username: 'Davyd Huk',
     }
 ]
 
