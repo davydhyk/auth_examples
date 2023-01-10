@@ -39,12 +39,13 @@ app.use(async (req, res, next) => {
             }
         });
     } catch {
-
+        
     }
     
     if (userRes.ok) {
         const user = await userRes.json();
         req.user = user;
+        console.log(user);
     }
 
     next();
@@ -80,6 +81,34 @@ app.post('/api/login', async (req, res) => {
 
     const auth = await authRes.json();
 
+    if (auth.access_token) {
+        res.json(auth);
+    }
+
+    res.status(401).send();
+});
+
+app.post('/api/callback', async (req, res) => {
+    const { code } = req.body;
+
+    const payload = {
+        grant_type: 'authorization_code',
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+        redirect_uri: 'http://localhost:3000'
+    };
+
+    const authRes = await fetch('https://kpi.eu.auth0.com/oauth/token', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    });
+
+    const auth = await authRes.json();
+    
     if (auth.access_token) {
         res.json(auth);
     }

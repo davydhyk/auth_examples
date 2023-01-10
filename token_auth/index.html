@@ -18,11 +18,9 @@
                 <p id="login-error-msg">Invalid username <span id="error-msg-second-line">and/or password</span></p>
             </div>
 
-            <form id="login-form" action="/api/login" method="post">
-                <input type="text" name="login" id="username-field" class="login-form-field" placeholder="Username">
-                <input type="password" name="password" id="password-field" class="login-form-field" placeholder="Password">
-                <input type="submit" value="Login" id="login-form-submit">
-            </form>
+            <div id="login-form">
+                <button type="button" id="login-form-submit">Login SSO</button>
+            </div>
 
         </main>
     </body>
@@ -105,7 +103,7 @@
 
         #login-form-submit {
             width: 100%;
-            padding: 7px;
+            padding: 17px 50px;
             border: none;
             border-radius: 5px;
             color: white;
@@ -131,7 +129,7 @@
                     Authorization: `${token.token_type} ${token.access_token}`
                 }
             }).then((response) => {
-                const { name } = response.data;
+                const { name, picture } = response.data;
 
                 if (name) {
                     const mainHolder = document.getElementById("main-holder");
@@ -141,6 +139,9 @@
                     loginErrorMsg.remove();
                     loginHeader.remove();
 
+                    const img = document.createElement('img');
+                    img.src = picture;
+                    mainHolder.append(img);
                     mainHolder.append(`Hello ${name}`);
                     logoutLink.style.opacity = 1;
                     logoutLink.addEventListener('click', () => {
@@ -148,6 +149,21 @@
                         location.reload();
                     });
                 }
+            });
+        }
+
+        const url = new URL(location.href);
+        const code = url.searchParams.get('code');
+        if (code) {
+            axios({
+                method: 'post',
+                url: '/api/callback',
+                data: { code }
+            }).then((response) => {
+                sessionStorage.setItem('token', JSON.stringify(response.data));
+                location.replace(location.origin);
+            }).catch((response) => {
+                
             });
         }
 
@@ -165,23 +181,16 @@
 
         loginButton.addEventListener("click", (e) => {
             e.preventDefault();
-            const login = loginForm.login.value;
-            const password = loginForm.password.value;
 
+            const url = new URL('https://kpi.eu.auth0.com/authorize');
+            url.searchParams.set('client_id', 'JIvCO5c2IBHlAe2patn6l6q5H35qxti0');
+            url.searchParams.set('redirect_uri', location.origin);
+            url.searchParams.set('response_type', 'code');
+            url.searchParams.set('response_mode', 'query');
+            url.searchParams.set('scope', 'openid profile');
+            url.searchParams.set('audience', 'https://kpi.eu.auth0.com/api/v2/');
 
-            axios({
-                method: 'post',
-                url: '/api/login',
-                data: {
-                    login,
-                    password
-                }
-            }).then((response) => {
-                sessionStorage.setItem('token', JSON.stringify(response.data));
-                location.reload();
-            }).catch((response) => {
-                loginErrorMsg.style.opacity = 1;
-            });
+            location.replace(url);
         })
     </script>
 </html>
